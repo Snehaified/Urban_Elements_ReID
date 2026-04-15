@@ -1,0 +1,5 @@
+*.jpg
+dataMarket
+jx_vit_base_p16_224-80ecf9dd.pth
+*.pyc
+tb_log
