@@ -45,5 +45,7 @@ from .randperson import RandPerson
 # Urban Elements re-id datasets
 from .UrbanElementsReID import UrbanElementsReID
 from .UrbanElementsReID_test import UrbanElementsReID_test
+from .UAM_Urban_Combined import UAM_Urban_Combined
+from .UAM_Eval import UAM_Eval
 
 __all__ = [k for k in globals().keys() if "builtin" not in k and not k.startswith("_")]
