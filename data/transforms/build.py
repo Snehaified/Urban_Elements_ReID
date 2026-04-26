@@ -7,6 +7,49 @@ from PIL import Image, ImageFilter, ImageOps
 
 from .transforms import LGT
 
+import torchvision.transforms.functional as F
+from PIL import Image
+
+class PadToAspect(object):
+    """
+    Pads a PIL image to match a target aspect ratio (target_w / target_h)
+    using constant value padding, preventing geometric distortion during Resize.
+    """
+    def __init__(self, target_h, target_w, fill=(127, 127, 127)):
+        self.target_h = target_h
+        self.target_w = target_w
+        self.target_ratio = target_w / target_h
+        # 127 is roughly the ImageNet mean, perfect for a neutral background
+        self.fill = fill 
+
+    def __call__(self, img):
+        w, h = img.size
+        img_ratio = w / max(h, 1) # Prevent division by zero
+
+        if abs(img_ratio - self.target_ratio) < 1e-5:
+            return img
+
+        # If the image is proportionally wider than the target (e.g., Crosswalks)
+        # We need to pad the top and bottom
+        if img_ratio > self.target_ratio:
+            new_h = int(w / self.target_ratio)
+            pad_h = new_h - h
+            pad_top = pad_h // 2
+            pad_bottom = pad_h - pad_top
+            # padding = (left, top, right, bottom)
+            padding = (0, pad_top, 0, pad_bottom)
+            
+        # If the image is proportionally taller than the target (e.g., Rubbish Bins)
+        # We need to pad the left and right
+        else:
+            new_w = int(h * self.target_ratio)
+            pad_w = new_w - w
+            pad_left = pad_w // 2
+            pad_right = pad_w - pad_left
+            padding = (pad_left, 0, pad_right, 0)
+
+        return F.pad(img, padding, self.fill, 'constant')
+
 class GaussianBlur(object):
     """
     Apply Gaussian Blur to the PIL image.
@@ -86,7 +129,14 @@ def build_transforms(cfg, is_train=True, is_fake=False):
 
         if do_autoaug:
             res.append(AutoAugment(total_iter))
+        if cfg.INPUT.ASPECT_PADDING:
+            res.append(PadToAspect(target_h=size_train[0], target_w=size_train[1]))
         res.append(T.Resize(size_train, interpolation=3))
+        if cfg.INPUT.PERSPECTIVE.ENABLED:
+            res.append(T.RandomPerspective(distortion_scale=cfg.INPUT.PERSPECTIVE.DISTORTION,
+                                           p=cfg.INPUT.PERSPECTIVE.PROB))
+        if cfg.INPUT.ROTATION.ENABLED:
+            res.append(T.RandomRotation(degrees=cfg.INPUT.ROTATION.DEGREES))
         if do_flip:
             res.append(T.RandomHorizontalFlip(p=flip_prob))
         if do_pad:
@@ -119,6 +169,8 @@ def build_transforms(cfg, is_train=True, is_fake=False):
             res.append(RE(probability=rea_prob, mode='pixel', max_count=1, device='cpu'))
     else:
         size_test = cfg.INPUT.SIZE_TEST
+        if cfg.INPUT.ASPECT_PADDING:
+            res.append(PadToAspect(target_h=size_test[0], target_w=size_test[1]))
         res.append(T.Resize(size_test, interpolation=3))
         res.extend([
             T.ToTensor(),

@@ -118,7 +118,17 @@ _C.INPUT.LGT.PROB = 0.2
 _C.INPUT.RPT = CN()
 _C.INPUT.RPT.ENABLED = False
 _C.INPUT.RPT.PROB = 0.5
-
+# Pad image to target aspect ratio before resize (prevents distortion on square crops)
+_C.INPUT.ASPECT_PADDING = False
+# Random perspective transform (simulates viewpoint change)
+_C.INPUT.PERSPECTIVE = CN()
+_C.INPUT.PERSPECTIVE.ENABLED = False
+_C.INPUT.PERSPECTIVE.DISTORTION = 0.3
+_C.INPUT.PERSPECTIVE.PROB = 0.5
+# Random rotation
+_C.INPUT.ROTATION = CN()
+_C.INPUT.ROTATION.ENABLED = False
+_C.INPUT.ROTATION.DEGREES = 15
 # -----------------------------------------------------------------------------
 # Dataset
 # -----------------------------------------------------------------------------
