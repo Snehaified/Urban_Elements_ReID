@@ -7,10 +7,13 @@ def make_optimizer(cfg, model):
         if not value.requires_grad:
             continue
         lr = cfg.SOLVER.BASE_LR
-        weight_decay = cfg.SOLVER.WEIGHT_DECAY
-        if "bias" in key:
+        if any(nd in key for nd in ('norm', 'bottleneck', 'bn')):
+            weight_decay = 0.0
+        elif "bias" in key:
             lr = cfg.SOLVER.BASE_LR * cfg.SOLVER.BIAS_LR_FACTOR
             weight_decay = cfg.SOLVER.WEIGHT_DECAY_BIAS
+        else:
+            weight_decay = cfg.SOLVER.WEIGHT_DECAY
         if cfg.SOLVER.LARGE_FC_LR:
             if "classifier" in key or "arcface" in key:
                 lr = cfg.SOLVER.BASE_LR * 2

@@ -1,0 +1,516 @@
+While I wait for those, here's the plan so you know what's coming:
+The plan
+Step 1 — Create 3 dataset classes (no modification of existing code)
+
+UAM_Urban_Combined: registered as 'UAM_URBAN', loads UAM train + Urban2026 train with a shared ID namespace (prefix UAM IDs with offset so they don't collide with Urban IDs). Used for DATASETS.TRAIN.
+UAM_Eval: registered as 'UAM_EVAL', loads UAM query from image_query/ and UAM test gallery from image_test/. Used for DATASETS.TEST.
+Keep the existing UrbanElementsReID_test for generating Kaggle submissions — untouched.
+
+Step 2 — New config files
+
+config/PAT_combined_train.yml: your actual training config (not the Market1501 one). Points DATASETS.TRAIN: ('UAM_URBAN',) and DATASETS.TEST: ('UAM_EVAL',). Enables augmentation. Sets the right input size.
+config/PAT_combined_eval.yml: for standalone evaluation. Points only to UAM_EVAL.
+
+Step 3 — Evaluation script
+A lean eval_uam.py that:
+
+Loads a checkpoint
+Runs inference on UAM query + UAM test
+Computes mAP overall + per-class + Rank-1/5/10
+Optionally runs re-ranking hyperparameter sweep
+
+Step 4 — Training procedure
+Your train.py already does per-epoch eval via val_loader. We'll point that at UAM_EVAL, but understand: this is breaking my own rule about not tuning against test. Three options:
+(a) Live with it: train.py evaluates on UAM every few epochs. Ignore the per-epoch numbers, only look at final. Risk: you'll peek and tune anyway.
+(b) Carve a small internal val from training data using the c003-as-query protocol. Eval runs against that during training. Final eval against UAM at experiment end.
+(c) Disable the in-training val entirely. Save checkpoints every N epochs, evaluate only the final one on UAM.
+My recommendation: (c) for simplicity, or (b) if you want the safety net. I'll give you the code for both — you pick.
+Step 5 — Experiment configs
+I'll generate YAML diffs for E1 (baseline combined), E2 (+aug), E3 (128×128 input), E4 (view embeddings), so you can stack them cleanly.
+
+Paste the three files (UrbanElementsReID.py, UrbanElementsReID_test.py, and the two config files) and tell me which of (a)/(b)/(c) you prefer. Then I'll write everything at once.
+Also answer: how many training runs can you realistically complete? 1, 3, or 5+? That determines whether I stack all changes into one config or write separate ablation configs.UrbanElementsReID.py158 righepyUrbanElementsReID_test.py140 righepyUrbanElementsReID_train.yml61 righeymlUrbanElementsReID_test.yml62 righeymlpls give me what to put in the next answer18:19Now I have everything. Here's the complete setup. You'll create:
+
+One new dataset class (combined UAM + Urban2026 for training)
+One new dataset class (UAM query/test for evaluation with ground truth)
+Two new config files (train + standalone eval)
+Keep everything else untouched
+
+
+1. Create data/datasets/UAM_Urban_Combined.py
+python# encoding: utf-8
+"""
+Combined UAMEXTERNAL + Urban2026 dataset for training.
+Query/gallery point at UAM query/test with ground-truth objectIDs,
+so train.py's per-epoch eval gives real per-class mAP on UAM c004.
+"""
+
+import csv
+import os.path as osp
+
+from .bases import ImageDataset
+from ..datasets import DATASET_REGISTRY
+
+
+@DATASET_REGISTRY.register()
+class UAM_Urban_Combined(ImageDataset):
+    """
+    Expected layout (ROOT_DIR should be project root, i.e. contains both folders):
+      <root>/UAMEXTERNAL/{image_train,image_query,image_test,train.csv,query.csv,test.csv}
+      <root>/Urban2026/{image_train,train.csv}  (train_classes.csv used for IDs)
+    """
+
+    # PID namespace offsets to avoid collisions
+    UAM_OFFSET = 0
+    URBAN_OFFSET = 100000  # guaranteed > max UAM ID
+
+    def __init__(self, root='.', verbose=True, **kwargs):
+        self.root = root
+        self.uam_dir = osp.join(root, 'UAMEXTERNAL')
+        self.urban_dir = osp.join(root, 'Urban2026')
+
+        self._check()
+
+        # Training data: UAM train + Urban2026 train (combined)
+        train_uam = self._read_train(
+            csv_path=osp.join(self.uam_dir, 'train.csv'),
+            img_dir=osp.join(self.uam_dir, 'image_train'),
+            pid_offset=self.UAM_OFFSET,
+        )
+        train_urban = self._read_train(
+            csv_path=osp.join(self.urban_dir, 'train.csv'),
+            img_dir=osp.join(self.urban_dir, 'image_train'),
+            pid_offset=self.URBAN_OFFSET,
+        )
+        train_raw = train_uam + train_urban
+
+        # Global relabel across both sources
+        pid_container = sorted({pid for _, pid, _ in train_raw})
+        pid2label = {pid: idx for idx, pid in enumerate(pid_container)}
+        train = [(p, pid2label[pid], cam) for p, pid, cam in train_raw]
+
+        # Query/gallery from UAM (with ground-truth IDs, not relabeled)
+        query = self._read_eval(
+            csv_path=osp.join(self.uam_dir, 'query.csv'),
+            img_dir=osp.join(self.uam_dir, 'image_query'),
+        )
+        gallery = self._read_eval(
+            csv_path=osp.join(self.uam_dir, 'test.csv'),
+            img_dir=osp.join(self.uam_dir, 'image_test'),
+        )
+
+        self.train = train
+        self.query = query
+        self.gallery = gallery
+
+        if verbose:
+            print(f"[UAM_Urban_Combined] train: {len(train)} imgs, "
+                  f"{len(pid_container)} pids (UAM+Urban combined)")
+            print(f"[UAM_Urban_Combined] query (UAM c004): {len(query)} imgs")
+            print(f"[UAM_Urban_Combined] gallery (UAM c001/c002/c003): {len(gallery)} imgs")
+
+        super().__init__(self.train, self.query, self.gallery, **kwargs)
+
+    def _check(self):
+        for d in [self.uam_dir, self.urban_dir]:
+            if not osp.exists(d):
+                raise RuntimeError(f"'{d}' is not available")
+        for f in [
+            osp.join(self.uam_dir, 'train.csv'),
+            osp.join(self.uam_dir, 'query.csv'),
+            osp.join(self.uam_dir, 'test.csv'),
+            osp.join(self.urban_dir, 'train.csv'),
+        ]:
+            if not osp.exists(f):
+                raise RuntimeError(f"CSV not found: {f}")
+
+    def _read_train(self, csv_path, img_dir, pid_offset):
+        """Returns list of (full_img_path, pid, camid). pid is source-specific int offset."""
+        out = []
+        with open(csv_path, newline='') as f:
+            reader = csv.reader(f)
+            next(reader)  # skip header
+            for row in reader:
+                cam_str, img_name = row[0], row[1]
+                pid_raw = row[2]  # UAM: objectID; Urban2026: Corresponding Indexes
+                try:
+                    pid = int(pid_raw) + pid_offset
+                except (ValueError, TypeError):
+                    continue
+                camid = int(cam_str[1:])  # 'c001' -> 1
+                out.append((osp.join(img_dir, img_name), pid, camid))
+        return out
+
+    def _read_eval(self, csv_path, img_dir):
+        """Returns list of (full_img_path, pid, camid). Uses real UAM objectIDs (not relabeled)."""
+        out = []
+        with open(csv_path, newline='') as f:
+            reader = csv.reader(f)
+            header = next(reader)
+            has_pid = len(header) >= 3
+            for row in reader:
+                cam_str, img_name = row[0], row[1]
+                pid = int(row[2]) if has_pid else -1
+                camid = int(cam_str[1:])
+                out.append((osp.join(img_dir, img_name), pid, camid))
+        return out
+2. Create data/datasets/UAM_Eval.py
+Just the eval half, for standalone evaluation without reloading all training data:
+python# encoding: utf-8
+"""UAMEXTERNAL query+test evaluation, with ground-truth IDs."""
+
+import csv
+import os.path as osp
+
+from .bases import ImageDataset
+from ..datasets import DATASET_REGISTRY
+
+
+@DATASET_REGISTRY.register()
+class UAM_Eval(ImageDataset):
+    def __init__(self, root='.', verbose=True, **kwargs):
+        self.uam_dir = osp.join(root, 'UAMEXTERNAL')
+        if not osp.exists(self.uam_dir):
+            raise RuntimeError(f"'{self.uam_dir}' is not available")
+
+        # Minimal train (needed by base class) — use UAM train with real IDs + relabel
+        train_raw = self._read(
+            osp.join(self.uam_dir, 'train.csv'),
+            osp.join(self.uam_dir, 'image_train'),
+        )
+        pid_container = sorted({pid for _, pid, _ in train_raw})
+        pid2label = {pid: idx for idx, pid in enumerate(pid_container)}
+        train = [(p, pid2label[pid], cam) for p, pid, cam in train_raw]
+
+        query = self._read(
+            osp.join(self.uam_dir, 'query.csv'),
+            osp.join(self.uam_dir, 'image_query'),
+        )
+        gallery = self._read(
+            osp.join(self.uam_dir, 'test.csv'),
+            osp.join(self.uam_dir, 'image_test'),
+        )
+
+        self.train = train
+        self.query = query
+        self.gallery = gallery
+
+        if verbose:
+            print(f"[UAM_Eval] query: {len(query)} imgs, gallery: {len(gallery)} imgs")
+
+        super().__init__(self.train, self.query, self.gallery, **kwargs)
+
+    def _read(self, csv_path, img_dir):
+        out = []
+        with open(csv_path, newline='') as f:
+            reader = csv.reader(f)
+            header = next(reader)
+            has_pid = len(header) >= 3
+            for row in reader:
+                cam_str, img_name = row[0], row[1]
+                pid = int(row[2]) if has_pid else -1
+                camid = int(cam_str[1:])
+                out.append((osp.join(img_dir, img_name), pid, camid))
+        return out
+3. Register the new classes
+Open data/datasets/__init__.py and add imports. Look for the existing UrbanElementsReID imports and add yours next to them:
+pythonfrom .UAM_Urban_Combined import UAM_Urban_Combined
+from .UAM_Eval import UAM_Eval
+4. Create config/PAT_combined_E1.yml — baseline on combined data
+yamlMODEL:
+  PRETRAIN_CHOICE: 'imagenet'
+  PRETRAIN_PATH: "checkpoints"
+  IF_LABELSMOOTH: 'on'
+  IF_WITH_CENTER: 'no'
+  NAME: 'part_attention_vit'
+  NO_MARGIN: True
+  DEVICE_ID: ('0')
+  TRANSFORMER_TYPE: 'vit_base_patch16_224_TransReID'
+  STRIDE_SIZE: [16, 16]
+
+INPUT:
+  SIZE_TRAIN: [256, 128]
+  SIZE_TEST: [256, 128]
+  REA:
+    ENABLED: False
+  PIXEL_MEAN: [0.5, 0.5, 0.5]
+  PIXEL_STD: [0.5, 0.5, 0.5]
+  LGT:
+    DO_LGT: True
+    PROB: 0.5
+
+DATASETS:
+  TRAIN: ('UAM_Urban_Combined',)
+  TEST: ('UAM_Urban_Combined',)   # same class provides query/gallery
+  ROOT_DIR: '.'                   # project root (contains UAMEXTERNAL/ and Urban2026/)
+
+DATALOADER:
+  SAMPLER: 'softmax_triplet'
+  NUM_INSTANCE: 4
+  NUM_WORKERS: 8
+
+SOLVER:
+  OPTIMIZER_NAME: 'SGD'
+  MAX_EPOCHS: 60
+  BASE_LR: 0.001
+  IMS_PER_BATCH: 64
+  WARMUP_METHOD: 'linear'
+  LARGE_FC_LR: False
+  CHECKPOINT_PERIOD: 10
+  LOG_PERIOD: 60
+  EVAL_PERIOD: 10   # eval every 10 epochs, not every epoch (reduces test-peeking)
+  WEIGHT_DECAY: 1e-4
+  WEIGHT_DECAY_BIAS: 1e-4
+  BIAS_LR_FACTOR: 2
+  SEED: 1234
+
+TEST:
+  EVAL: True
+  IMS_PER_BATCH: 128
+  RE_RANKING: False
+  WEIGHT: ''
+  NECK_FEAT: 'before'
+  FEAT_NORM: True
+
+LOG_ROOT: 'models/'
+TB_LOG_ROOT: './tb_log/'
+LOG_NAME: 'E1_baseline_combined'
+Run:
+bashpython train.py --config_file config/PAT_combined_E1.yml
+5. Create config/PAT_combined_E2.yml — +augmentation
+Same as E1 but enable augmentation:
+yaml# ... (copy E1) ...
+
+INPUT:
+  SIZE_TRAIN: [256, 128]
+  SIZE_TEST: [256, 128]
+  REA:
+    ENABLED: True   # <-- enable random erasing
+    PROB: 0.5
+  PIXEL_MEAN: [0.5, 0.5, 0.5]
+  PIXEL_STD: [0.5, 0.5, 0.5]
+  LGT:
+    DO_LGT: True
+    PROB: 0.5
+
+# ... rest same ...
+
+LOG_NAME: 'E2_aug_combined'
+6. Create config/PAT_combined_E3.yml — smaller input
+Same as E2 but 128×128 input:
+yaml# ... (copy E2) ...
+
+INPUT:
+  SIZE_TRAIN: [128, 128]      # <-- was [256, 128]
+  SIZE_TEST: [128, 128]
+  REA:
+    ENABLED: True
+    PROB: 0.5
+  # ...
+
+LOG_NAME: 'E3_aug_small_combined'
+7. Create eval_uam.py — standalone eval with per-class mAP
+Drop-in at project root. Computes per-class mAP without touching training code:
+python"""
+Standalone evaluation on UAM query/test.
+Usage:
+  python eval_uam.py --config_file config/PAT_combined_E1.yml \
+      TEST.WEIGHT ./models/E1_baseline_combined/part_attention_vit_60.pth
+"""
+import os
+import argparse
+import csv
+import numpy as np
+import torch
+from collections import defaultdict
+
+from config import cfg
+from model import make_model
+from data.build_DG_dataloader import build_reid_test_loader
+from utils.re_ranking import re_ranking
+
+
+def normalize_class(c):
+    c = str(c).strip().lower()
+    mapping = {
+        "trafficsignal": "trafficsign", "trafficsign": "trafficsign",
+        "container": "container",
+        "rubbishbins": "rubbishbin", "rubbishbin": "rubbishbin",
+        "crosswalk": "crosswalk", "crosswalks": "crosswalk",
+    }
+    return mapping.get(c, c)
+
+
+def load_class_map(csv_path):
+    """Return {imageName: normalized_class}."""
+    out = {}
+    with open(csv_path) as f:
+        reader = csv.reader(f)
+        header = next(reader)
+        cls_idx = header.index("Class")
+        name_idx = header.index("imageName")
+        for row in reader:
+            out[row[name_idx]] = normalize_class(row[cls_idx])
+    return out
+
+
+def compute_metrics(distmat, q_pids, g_pids, max_rank=20):
+    """Standard mAP + Rank-k. Returns per-query AP and CMC."""
+    num_q, num_g = distmat.shape
+    if num_g < max_rank:
+        max_rank = num_g
+    indices = np.argsort(distmat, axis=1)
+    matches = (g_pids[indices] == q_pids[:, np.newaxis]).astype(np.int32)
+
+    all_cmc = []
+    all_AP = []
+    num_valid_q = 0
+    for q_idx in range(num_q):
+        orig_cmc = matches[q_idx]
+        if not np.any(orig_cmc):
+            continue
+        cmc = orig_cmc.cumsum()
+        cmc[cmc > 1] = 1
+        all_cmc.append(cmc[:max_rank])
+        num_rel = orig_cmc.sum()
+        tmp_cmc = orig_cmc.cumsum()
+        tmp_cmc = [x / (i + 1.) for i, x in enumerate(tmp_cmc)]
+        tmp_cmc = np.asarray(tmp_cmc) * orig_cmc
+        AP = tmp_cmc.sum() / num_rel
+        all_AP.append(AP)
+        num_valid_q += 1
+    assert num_valid_q > 0
+    all_cmc = np.asarray(all_cmc).astype(np.float32).mean(axis=0)
+    mAP = np.mean(all_AP)
+    return mAP, all_cmc, all_AP
+
+
+def extract_feats(model, loader, num_query):
+    feats = []
+    pids = []
+    camids = []
+    names = []
+    model.eval()
+    with torch.no_grad():
+        for batch in loader:
+            img = batch['images'].cuda()
+            pid = batch['targets']
+            cam = batch['camids']
+            path = batch['img_paths']
+            # TTA: original + horizontal flip
+            out1 = model(img).float()
+            out2 = model(torch.flip(img, dims=[3])).float()
+            f = out1 + out2
+            f = f / f.norm(p=2, dim=1, keepdim=True)
+            feats.append(f.cpu())
+            pids.extend(pid.tolist() if torch.is_tensor(pid) else list(pid))
+            camids.extend(cam.tolist() if torch.is_tensor(cam) else list(cam))
+            names.extend([os.path.basename(p) for p in path])
+    feats = torch.cat(feats, 0).numpy()
+    return feats[:num_query], feats[num_query:], \
+           np.array(pids[:num_query]), np.array(pids[num_query:]), \
+           names[:num_query], names[num_query:]
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--config_file", required=True)
+    parser.add_argument("--rerank", action="store_true", help="apply k-reciprocal rerank")
+    parser.add_argument("opts", nargs=argparse.REMAINDER)
+    args = parser.parse_args()
+
+    cfg.merge_from_file(args.config_file)
+    cfg.merge_from_list(args.opts)
+    cfg.freeze()
+
+    os.environ['CUDA_VISIBLE_DEVICES'] = cfg.MODEL.DEVICE_ID
+
+    # Force eval dataset
+    val_loader, num_query = build_reid_test_loader(cfg, 'UAM_Eval')
+
+    model = make_model(cfg, cfg.MODEL.NAME, num_class=1, camera_num=None, view_num=None)
+    model.load_param(cfg.TEST.WEIGHT)
+    model.cuda()
+    model.eval()
+
+    qf, gf, q_pids, g_pids, q_names, g_names = extract_feats(model, val_loader, num_query)
+
+    print(f"qf: {qf.shape}, gf: {gf.shape}")
+
+    # Distance
+    q_g_dist = 1 - qf @ gf.T   # cosine distance (feats are L2-normed)
+    if args.rerank:
+        q_q_dist = 1 - qf @ qf.T
+        g_g_dist = 1 - gf @ gf.T
+        distmat = re_ranking(q_g_dist, q_q_dist, g_g_dist, k1=20, k2=6, lambda_value=0.3)
+    else:
+        distmat = q_g_dist
+
+    # Overall metrics
+    mAP, cmc, all_AP = compute_metrics(distmat, q_pids, g_pids)
+    print(f"\n{'=' * 50}")
+    print(f"OVERALL  mAP: {mAP:.4f}  R1: {cmc[0]:.4f}  R5: {cmc[4]:.4f}  R10: {cmc[9]:.4f}")
+    print(f"{'=' * 50}")
+
+    # Per-class breakdown using query_classes.csv
+    q_class_csv = os.path.join(cfg.DATASETS.ROOT_DIR, 'UAMEXTERNAL', 'query_classes.csv')
+    q_class_map = load_class_map(q_class_csv)
+    q_classes = np.array([q_class_map.get(n, 'unknown') for n in q_names])
+
+    print(f"\n{'Class':<15} {'N':>5} {'mAP':>8} {'R1':>8} {'R5':>8} {'R10':>8}")
+    print('-' * 60)
+    for cls in sorted(set(q_classes)):
+        mask = q_classes == cls
+        if mask.sum() == 0:
+            continue
+        cls_dist = distmat[mask]
+        cls_qpids = q_pids[mask]
+        cls_mAP, cls_cmc, _ = compute_metrics(cls_dist, cls_qpids, g_pids)
+        print(f"{cls:<15} {mask.sum():>5} {cls_mAP:>8.4f} "
+              f"{cls_cmc[0]:>8.4f} {cls_cmc[4]:>8.4f} {cls_cmc[9]:>8.4f}")
+
+What you do now, in order
+Step 1 — Add the 3 files (dataset classes + register them)
+
+Copy UAM_Urban_Combined.py into data/datasets/
+Copy UAM_Eval.py into data/datasets/
+Edit data/datasets/__init__.py: add two from .X import X lines
+
+Step 2 — Sanity test the loader
+Run from project root (no full training, just check data loads):
+bashpython -c "
+from config import cfg
+cfg.merge_from_file('config/PAT_combined_E1.yml')
+from data.build_DG_dataloader import build_reid_train_loader, build_reid_test_loader
+tl = build_reid_train_loader(cfg)
+print('Train OK, pids:', len(tl.dataset.pids))
+vl, nq = build_reid_test_loader(cfg, 'UAM_Urban_Combined')
+print(f'Val OK, num_query: {nq}')
+"
+Expected: pids: ~1530, num_query: 517. If it works, proceed.
+Step 3 — Run E1 (baseline on combined data)
+bashpython train.py --config_file config/PAT_combined_E1.yml
+Wait for it to finish (EVAL_PERIOD: 10 means eval every 10 epochs — glance at those but don't tune against them).
+Step 4 — Final eval of E1
+bashpython eval_uam.py --config_file config/PAT_combined_E1.yml \
+    TEST.WEIGHT ./models/E1_baseline_combined/part_attention_vit_60.pth
+Record per-class mAP in a spreadsheet.
+Step 5 — Run E2 (+ augmentation)
+Copy E1's best checkpoint aside, then:
+bashpython train.py --config_file config/PAT_combined_E2.yml
+python eval_uam.py --config_file config/PAT_combined_E2.yml \
+    TEST.WEIGHT ./models/E2_aug_combined/part_attention_vit_60.pth
+Step 6 — Run E3 (smaller input)
+bashpython train.py --config_file config/PAT_combined_E3.yml
+python eval_uam.py --config_file config/PAT_combined_E3.yml \
+    TEST.WEIGHT ./models/E3_aug_small_combined/part_attention_vit_60.pth
+Step 7 — Submit best to Kaggle
+Use your existing test.py with the best checkpoint to generate the submission CSV from Urban2026 query/test.
+
+Things to watch for
+
+If the sanity test fails (Step 2), paste the error. Most likely issue is data/datasets/__init__.py not importing the new classes — there may be a registration pattern I haven't seen.
+If EVAL_PERIOD: 10 triggers eval but errors on UAM_Urban_Combined, the existing part_attention_vit_processor.py might expect specific field names. Paste the error.
+If training mAP climbs nicely during E1 but evaluation at end is bad, it's the domain gap (Urban2026 training ≠ UAM eval). In that case E2/E3 need reconsideration.
+
+Do Step 1 + Step 2 first, paste the output of the sanity test, then wait for my go-ahead before Step 3. That avoids burning a training run on a broken loader.

@@ -10,8 +10,8 @@ MODEL:
   STRIDE_SIZE: [16, 16]
 
 INPUT:
-  SIZE_TRAIN: [224, 224]
-  SIZE_TEST: [224, 224]
+  SIZE_TRAIN: [256, 128]
+  SIZE_TEST: [256, 128]
   REA:
     ENABLED: False
   PIXEL_MEAN: [0.5, 0.5, 0.5]
@@ -30,19 +30,19 @@ DATALOADER:
   NUM_WORKERS: 8
 
 SOLVER:
-  OPTIMIZER_NAME: 'AdamW'  # 'Adam' is fine if 'AdamW' isn't supported in your codebase
-  MAX_EPOCHS: 120          # Transformers need a bit more time to settle
-  BASE_LR: 0.0003          # 3e-4 is the sweet spot for ViT fine-tuning
-  IMS_PER_BATCH: 64        # Keep this, it's a good batch size
-  
-  # Learning Rate Scheduling
+  OPTIMIZER_NAME: 'SGD'
+  MAX_EPOCHS: 60
+  BASE_LR: 0.001
+  IMS_PER_BATCH: 64
   WARMUP_METHOD: 'linear'
-  WARMUP_EPOCHS: 10        # Crucial: Give the ViT 10 epochs to wake up slowly
-  WARMUP_FACTOR: 0.01
-  
-  # Regularization
-  WEIGHT_DECAY: 0.01       # AdamW requires higher weight decay than SGD
-  WEIGHT_DECAY_BIAS: 0.01
+  LARGE_FC_LR: False
+  CHECKPOINT_PERIOD: 10
+  LOG_PERIOD: 60
+  EVAL_PERIOD: 10   # eval every 10 epochs, not every epoch (reduces test-peeking)
+  WEIGHT_DECAY: 1e-4
+  WEIGHT_DECAY_BIAS: 1e-4
+  BIAS_LR_FACTOR: 2
+  SEED: 1234
 
 TEST:
   EVAL: True
@@ -54,4 +54,4 @@ TEST:
 
 LOG_ROOT: 'models/'
 TB_LOG_ROOT: './tb_log/'
-LOG_NAME: 'E2_adamw_224224'
+LOG_NAME: 'E1_baseline_combined'

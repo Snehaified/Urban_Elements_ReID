@@ -8,25 +8,33 @@ MODEL:
   DEVICE_ID: ('0')
   TRANSFORMER_TYPE: 'vit_base_patch16_224_TransReID'
   STRIDE_SIZE: [16, 16]
+  # If your TransReID codebase supports these, turn them ON for c004
+  # SIE_CAMERA: True 
+  # SIE_VIEW: True
 
 INPUT:
-  SIZE_TRAIN: [128, 128]      
-  SIZE_TEST: [128, 128]
+  SIZE_TRAIN: [224, 224]      # Perfect 14x14 patch grid for the ViT
+  SIZE_TEST: [224, 224]
+  DO_FLIP: False              # CRITICAL: Traffic signs are strictly asymmetrical!
   REA:
-    ENABLED: False
+    ENABLED: False            # Keep off to preserve micro-features
   PIXEL_MEAN: [0.5, 0.5, 0.5]
   PIXEL_STD: [0.5, 0.5, 0.5]
-  LGT: # Local Grayscale Transfomation
-    DO_LGT: True
+  CJ:
+    ENABLED: True             # Color Jitter forces reliance on shape/context
+    PROB: 0.8
+  PERSPECTIVE:
+    ENABLED: True             # Simulates c004 acute angles
+    DISTORTION: 0.3
     PROB: 0.5
-
-
-
+  ROTATION:
+    ENABLED: True
+    DEGREES: 15
 
 DATASETS:
   TRAIN: ('UAM_Urban_Combined',)
-  TEST: ('UAM_Urban_Combined',)   # same class provides query/gallery
-  ROOT_DIR: '.'                   # project root (contains UAMEXTERNAL/ and Urban2026/)
+  TEST: ('UAM_Urban_Combined',)
+  ROOT_DIR: '.'
 
 DATALOADER:
   SAMPLER: 'softmax_triplet'
@@ -34,17 +42,19 @@ DATALOADER:
   NUM_WORKERS: 8
 
 SOLVER:
-  OPTIMIZER_NAME: 'SGD'
-  MAX_EPOCHS: 60
-  BASE_LR: 0.001
+  OPTIMIZER_NAME: 'AdamW'     # Required for ViT stability
+  MAX_EPOCHS: 120             # Give the ViT time to converge
+  BASE_LR: 0.0003             # 3e-4 sweet spot
   IMS_PER_BATCH: 64
   WARMUP_METHOD: 'linear'
+  WARMUP_EPOCHS: 10           # Crucial to prevent catastrophic forgetting
+  WARMUP_FACTOR: 0.01
   LARGE_FC_LR: False
   CHECKPOINT_PERIOD: 10
   LOG_PERIOD: 60
-  EVAL_PERIOD: 10   # eval every 10 epochs, not every epoch (reduces test-peeking)
-  WEIGHT_DECAY: 1e-4
-  WEIGHT_DECAY_BIAS: 1e-4
+  EVAL_PERIOD: 10
+  WEIGHT_DECAY: 0.01          # Stronger regularization for AdamW
+  WEIGHT_DECAY_BIAS: 0.01
   BIAS_LR_FACTOR: 2
   SEED: 1234
 
@@ -53,9 +63,10 @@ TEST:
   IMS_PER_BATCH: 128
   RE_RANKING: False
   WEIGHT: ''
-  NECK_FEAT: 'before'
+  NECK_FEAT: 'after'          # Evaluate on the normalized hypersphere
   FEAT_NORM: True
+
 
 LOG_ROOT: 'models/'
 TB_LOG_ROOT: './tb_log/'
-LOG_NAME: 'E3_aug_small_combined'
+LOG_NAME: 'E3_cj_per_rot_224224'

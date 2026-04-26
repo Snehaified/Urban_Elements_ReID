@@ -72,6 +72,7 @@ def part_attention_vit_do_train_with_amp(cfg,
     
     best_mAP = 0.0
     best_index = 1
+    mAP = 0.0
     for epoch in range(1, epochs + 1):
         start_time = time.time()
         total_loss_meter.reset()
@@ -177,10 +178,6 @@ def part_attention_vit_do_train_with_amp(cfg,
                 tbWriter.add_scalar('val/mAP', mAP, epoch)
 
         if epoch % checkpoint_period == 0:
-            if best_mAP < mAP:
-                best_mAP = mAP
-                best_index = epoch
-                logger.info("=====best epoch: {}=====".format(best_index))
             if cfg.MODEL.DIST_TRAIN:
                 if dist.get_rank() == 0:
                     torch.save(model.state_dict(),
@@ -188,29 +185,36 @@ def part_attention_vit_do_train_with_amp(cfg,
             else:
                 torch.save(model.state_dict(),
                            os.path.join(log_path, cfg.MODEL.NAME + '_{}.pth'.format(epoch)))
+            if best_mAP < mAP:
+                best_mAP = mAP
+                best_index = epoch
+                logger.info("=====best epoch: {}=====".format(best_index))
+                torch.save(model.state_dict(),
+                           os.path.join(log_path, cfg.MODEL.NAME + '_best.pth'))
         torch.cuda.empty_cache()
 
-    # final evaluation
-    load_path = os.path.join(log_path, cfg.MODEL.NAME + '_{}.pth'.format(best_index))
+    # save last checkpoint
+    torch.save(model.state_dict(), os.path.join(log_path, cfg.MODEL.NAME + '_last.pth'))
+
+    # final evaluation on best model
+    best_ckpt = os.path.join(log_path, cfg.MODEL.NAME + '_best.pth')
     eval_model = make_model(cfg, modelname=cfg.MODEL.NAME, num_class=0, camera_num=None, view_num=None)
-    eval_model.load_param(load_path)
-    print('load weights from {}_{}.pth'.format(cfg.MODEL.NAME, best_index))
+    eval_model.load_param(best_ckpt)
+    print('load weights from {}'.format(best_ckpt))
     for testname in cfg.DATASETS.TEST:
         if 'ALL' in testname:
             testname = 'DG_' + testname.split('_')[1]
         val_loader, num_query = build_reid_test_loader(cfg, testname)
         do_inference(cfg, eval_model, val_loader, num_query)
-    
-    # remove useless path files
-    del_list = os.listdir(log_path)
-    for fname in del_list:
-        if '.pth' in fname:
-            os.remove(os.path.join(log_path, fname))
-            print('removing {}. '.format(os.path.join(log_path, fname)))
-    # save final checkpoint
-    print('saving final checkpoint.\nDo not interrupt the program!!!')
-    torch.save(eval_model.state_dict(), os.path.join(log_path, cfg.MODEL.NAME + '_{}.pth'.format(epoch)))
-    print('done!')
+
+    # remove intermediate per-epoch checkpoints, keep _best.pth and _last.pth
+    keep = {cfg.MODEL.NAME + '_best.pth', cfg.MODEL.NAME + '_last.pth'}
+    for fname in os.listdir(log_path):
+        if fname.endswith('.pth') and fname not in keep:
+            fpath = os.path.join(log_path, fname)
+            os.remove(fpath)
+            print('removed {}'.format(fpath))
+    print('done! saved: {}_best.pth and {}_last.pth'.format(cfg.MODEL.NAME, cfg.MODEL.NAME))
 
 def do_inference(cfg,
                  model,
