@@ -20,13 +20,18 @@ INPUT:
     ENABLED: False            # Keep off to preserve micro-features
   PIXEL_MEAN: [0.5, 0.5, 0.5]
   PIXEL_STD: [0.5, 0.5, 0.5]
-  PERSPECTIVE:
-    ENABLED: True             # Simulates c004 acute angles
-    DISTORTION: 0.3
-    PROB: 0.5
-  ROTATION:
+  CJ:
     ENABLED: True
-    DEGREES: 15
+    PROB: 0.8
+    BRIGHTNESS: 0.3       # Forces the ViT to learn shape/texture, not absolute brightness
+    CONTRAST: 0.2
+    SATURATION: 0.1
+    HUE: 0.0          
+  
+  PERSPECTIVE:
+    ENABLED: False
+  ROTATION:
+    ENABLED: False
 
 DATASETS:
   TRAIN: ('UAM_Urban_Combined',)
@@ -66,4 +71,4 @@ TEST:
 
 LOG_ROOT: 'models/'
 TB_LOG_ROOT: './tb_log/'
-LOG_NAME: 'E3_per_rot_224224'
+LOG_NAME: 'E4_cj_224224'

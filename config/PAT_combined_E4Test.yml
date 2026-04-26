@@ -16,22 +16,24 @@ INPUT:
   SIZE_TRAIN: [224, 224]      # Perfect 14x14 patch grid for the ViT
   SIZE_TEST: [224, 224]
   DO_FLIP: False              # CRITICAL: Traffic signs are strictly asymmetrical!
+  ASPECT_PADDING: True     # Activate the padding transform
   REA:
     ENABLED: False            # Keep off to preserve micro-features
   PIXEL_MEAN: [0.5, 0.5, 0.5]
   PIXEL_STD: [0.5, 0.5, 0.5]
-  PERSPECTIVE:
-    ENABLED: True             # Simulates c004 acute angles
-    DISTORTION: 0.3
-    PROB: 0.5
-  ROTATION:
+  CJ:
     ENABLED: True
-    DEGREES: 15
+    PROB: 0.8
+    BRIGHTNESS: 0.3       # Forces the ViT to learn shape/texture, not absolute brightness
+    CONTRAST: 0.2
+    SATURATION: 0.1
+    HUE: 0.0   
 
 DATASETS:
-  TRAIN: ('UAM_Urban_Combined',)
-  TEST: ('UAM_Urban_Combined',)
-  ROOT_DIR: '.'
+  TRAIN: ('UrbanElementsReID',)
+  TEST: ('UrbanElementsReID_test',)
+  #ROOT_DIR: ('../../data') # root of datasets
+  ROOT_DIR: './Urban2026'
 
 DATALOADER:
   SAMPLER: 'softmax_triplet'
@@ -54,16 +56,15 @@ SOLVER:
   WEIGHT_DECAY_BIAS: 0.01
   BIAS_LR_FACTOR: 2
   SEED: 1234
-
 TEST:
   EVAL: True
   IMS_PER_BATCH: 128
   RE_RANKING: False
-  WEIGHT: ''
-  NECK_FEAT: 'after'          # Evaluate on the normalized hypersphere
+  WEIGHT: "models/E4_cj_224224/part_attention_vit_10.pth" #test 
+  NECK_FEAT: 'before'
   FEAT_NORM: True
 
 
 LOG_ROOT: 'models/'
 TB_LOG_ROOT: './tb_log/'
-LOG_NAME: 'E3_per_rot_224224'
+LOG_NAME: 'E4_cj_224224'

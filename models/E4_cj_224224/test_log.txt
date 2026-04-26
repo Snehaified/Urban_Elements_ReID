@@ -1,0 +1,206 @@
+2026-04-27 00:34:41,631 PAT INFO: Namespace(config_file='config/PAT_combined_E4Test.yml', opts=[], track='track')
+2026-04-27 00:34:41,631 PAT INFO: Loaded configuration file config/PAT_combined_E4Test.yml
+2026-04-27 00:34:41,631 PAT INFO: 
+MODEL:
+  PRETRAIN_CHOICE: 'imagenet'
+  PRETRAIN_PATH: "models/checkpoints"
+  IF_LABELSMOOTH: 'on'
+  IF_WITH_CENTER: 'no'
+  NAME: 'part_attention_vit'
+  NO_MARGIN: True
+  DEVICE_ID: ('0')
+  TRANSFORMER_TYPE: 'vit_base_patch16_224_TransReID'
+  STRIDE_SIZE: [16, 16]
+  # If your TransReID codebase supports these, turn them ON for c004
+  # SIE_CAMERA: True 
+  # SIE_VIEW: True
+
+INPUT:
+  SIZE_TRAIN: [224, 224]      # Perfect 14x14 patch grid for the ViT
+  SIZE_TEST: [224, 224]
+  DO_FLIP: False              # CRITICAL: Traffic signs are strictly asymmetrical!
+  ASPECT_PADDING: True     # Activate the padding transform
+  REA:
+    ENABLED: False            # Keep off to preserve micro-features
+  PIXEL_MEAN: [0.5, 0.5, 0.5]
+  PIXEL_STD: [0.5, 0.5, 0.5]
+  CJ:
+    ENABLED: True
+    PROB: 0.8
+    BRIGHTNESS: 0.3       # Forces the ViT to learn shape/texture, not absolute brightness
+    CONTRAST: 0.2
+    SATURATION: 0.1
+    HUE: 0.0   
+
+DATASETS:
+  TRAIN: ('UrbanElementsReID',)
+  TEST: ('UrbanElementsReID_test',)
+  #ROOT_DIR: ('../../data') # root of datasets
+  ROOT_DIR: './Urban2026'
+
+DATALOADER:
+  SAMPLER: 'softmax_triplet'
+  NUM_INSTANCE: 4
+  NUM_WORKERS: 8
+
+SOLVER:
+  OPTIMIZER_NAME: 'AdamW'     # Required for ViT stability
+  MAX_EPOCHS: 120             # Give the ViT time to converge
+  BASE_LR: 0.0002             # 3e-4 sweet spot
+  IMS_PER_BATCH: 64
+  WARMUP_METHOD: 'linear'
+  WARMUP_EPOCHS: 10           # Crucial to prevent catastrophic forgetting
+  WARMUP_FACTOR: 0.01
+  LARGE_FC_LR: False
+  CHECKPOINT_PERIOD: 10
+  LOG_PERIOD: 60
+  EVAL_PERIOD: 10
+  WEIGHT_DECAY: 0.01          # Stronger regularization for AdamW
+  WEIGHT_DECAY_BIAS: 0.01
+  BIAS_LR_FACTOR: 2
+  SEED: 1234
+TEST:
+  EVAL: True
+  IMS_PER_BATCH: 128
+  RE_RANKING: False
+  WEIGHT: "models/E4_cj_224224/part_attention_vit_10.pth" #test 
+  NECK_FEAT: 'before'
+  FEAT_NORM: True
+
+
+LOG_ROOT: 'models/'
+TB_LOG_ROOT: './tb_log/'
+LOG_NAME: 'E4_cj_224224'
+2026-04-27 00:34:41,631 PAT INFO: Running with config:
+DATALOADER:
+  CAMERA_TO_DOMAIN: False
+  DELETE_REM: False
+  DROP_LAST: False
+  INDIVIDUAL: False
+  NAIVE_WAY: True
+  NUM_INSTANCE: 4
+  NUM_WORKERS: 8
+  SAMPLER: softmax_triplet
+DATASETS:
+  COMBINEALL: False
+  ROOT_DIR: ./Urban2026
+  TEST: ('UrbanElementsReID_test',)
+  TRAIN: ('UrbanElementsReID',)
+INPUT:
+  ASPECT_PADDING: True
+  CJ:
+    BRIGHTNESS: 0.3
+    CONTRAST: 0.2
+    ENABLED: True
+    HUE: 0.0
+    PROB: 0.8
+    SATURATION: 0.1
+  DO_AUGMIX: False
+  DO_AUTOAUG: False
+  DO_FLIP: False
+  DO_PAD: True
+  FLIP_PROB: 0.5
+  LGT:
+    DO_LGT: False
+    PROB: 0.2
+  PADDING: 10
+  PADDING_MODE: constant
+  PERSPECTIVE:
+    DISTORTION: 0.3
+    ENABLED: False
+    PROB: 0.5
+  PIXEL_MEAN: [0.5, 0.5, 0.5]
+  PIXEL_STD: [0.5, 0.5, 0.5]
+  REA:
+    ENABLED: False
+    MEAN: [123.675, 116.28, 103.53]
+    PROB: 0.5
+  ROTATION:
+    DEGREES: 15
+    ENABLED: False
+  RPT:
+    ENABLED: False
+    PROB: 0.5
+  SIZE_TEST: [224, 224]
+  SIZE_TRAIN: [224, 224]
+LOG_NAME: E4_cj_224224
+LOG_ROOT: models/
+MODEL:
+  ATT_DROP_RATE: 0.0
+  CLUSTER_K: 10
+  COS_LAYER: False
+  DEVICE: cuda
+  DEVICE_ID: 0
+  DIST_TRAIN: False
+  DROP_OUT: 0.0
+  DROP_PATH: 0.1
+  FREEZE_PATCH_EMBED: True
+  ID_LOSS_TYPE: softmax
+  ID_LOSS_WEIGHT: 1.0
+  IF_LABELSMOOTH: on
+  IF_WITH_CENTER: no
+  LAST_STRIDE: 1
+  METRIC_LOSS_TYPE: triplet
+  NAME: part_attention_vit
+  NECK: bnneck
+  NO_MARGIN: True
+  PATCH_EMBED_TYPE: 
+  PC_LOSS: True
+  PC_LR: 1.0
+  PC_SCALE: 0.02
+  PRETRAIN_CHOICE: imagenet
+  PRETRAIN_PATH: models/checkpoints
+  SOFT_LABEL: True
+  SOFT_LAMBDA: 0.5
+  SOFT_WEIGHT: 0.5
+  STRIDE_SIZE: [16, 16]
+  TRANSFORMER_TYPE: vit_base_patch16_224_TransReID
+  TRIPLET_LOSS_WEIGHT: 1.0
+SOLVER:
+  BASE_LR: 0.0002
+  BIAS_LR_FACTOR: 2
+  CENTER_LOSS_WEIGHT: 0.0005
+  CENTER_LR: 0.5
+  CHECKPOINT_PERIOD: 10
+  COSINE_MARGIN: 0.5
+  COSINE_SCALE: 30
+  EVAL_PERIOD: 10
+  GAMMA: 0.1
+  IMS_PER_BATCH: 64
+  LARGE_FC_LR: False
+  LOG_PERIOD: 60
+  MARGIN: 0.3
+  MAX_EPOCHS: 120
+  MOMENTUM: 0.9
+  OPTIMIZER_NAME: AdamW
+  SEED: 1234
+  STEPS: (40, 70)
+  WARMUP_EPOCHS: 10
+  WARMUP_FACTOR: 0.01
+  WARMUP_METHOD: linear
+  WEIGHT_DECAY: 0.01
+  WEIGHT_DECAY_BIAS: 0.01
+TB_LOG_ROOT: ./tb_log/
+TEST:
+  DIST_MAT: dist_mat.npy
+  EVAL: True
+  FEAT_NORM: True
+  IMS_PER_BATCH: 128
+  NECK_FEAT: before
+  RE_RANKING: False
+  WEIGHT: models/E4_cj_224224/part_attention_vit_10.pth
+2026-04-27 00:34:42,665 PAT.train INFO: Number of parameter: 86.57M
+2026-04-27 00:34:43,246 PAT INFO: => Loaded UrbanElementsReID_test
+2026-04-27 00:34:43,247 PAT INFO:   ----------------------------------------
+2026-04-27 00:34:43,247 PAT INFO:   subset   | # ids | # images | # cameras
+2026-04-27 00:34:43,247 PAT INFO:   ----------------------------------------
+2026-04-27 00:34:43,247 PAT INFO:   query    |     1 |      928 |         1
+2026-04-27 00:34:43,247 PAT INFO:   gallery  |     1 |     2844 |         3
+2026-04-27 00:34:43,247 PAT INFO:   ----------------------------------------
+2026-04-27 00:34:43,247 PAT.test INFO: Enter inferencing
+2026-04-27 00:34:59,939 PAT.test INFO: Validation Results 
+2026-04-27 00:34:59,940 PAT.test INFO: mAP: 100.0%
+2026-04-27 00:34:59,940 PAT.test INFO: CMC curve, Rank-1  :100.0%
+2026-04-27 00:34:59,940 PAT.test INFO: CMC curve, Rank-5  :100.0%
+2026-04-27 00:34:59,940 PAT.test INFO: CMC curve, Rank-10 :100.0%
+2026-04-27 00:34:59,940 PAT.test INFO: total inference time: 16.61

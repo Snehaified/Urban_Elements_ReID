@@ -29,9 +29,10 @@ INPUT:
     DEGREES: 15
 
 DATASETS:
-  TRAIN: ('UAM_Urban_Combined',)
-  TEST: ('UAM_Urban_Combined',)
-  ROOT_DIR: '.'
+  TRAIN: ('UrbanElementsReID',)
+  TEST: ('UrbanElementsReID_test',)
+  #ROOT_DIR: ('../../data') # root of datasets
+  ROOT_DIR: './UAMEXTERNAL'
 
 DATALOADER:
   SAMPLER: 'softmax_triplet'
@@ -59,8 +60,8 @@ TEST:
   EVAL: True
   IMS_PER_BATCH: 128
   RE_RANKING: False
-  WEIGHT: ''
-  NECK_FEAT: 'after'          # Evaluate on the normalized hypersphere
+  WEIGHT: "models/E3_per_rot_224224/part_attention_vit_20.pth" #test 
+  NECK_FEAT: 'before'
   FEAT_NORM: True
 
 
