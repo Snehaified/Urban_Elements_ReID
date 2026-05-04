@@ -1,0 +1,56 @@
+MODEL:
+  PRETRAIN_CHOICE: 'imagenet'
+  PRETRAIN_PATH: "models/checkpoints"
+  IF_LABELSMOOTH: 'on'
+  IF_WITH_CENTER: 'yes'
+  NAME: 'part_attention_vit'
+  NO_MARGIN: True
+  TRANSFORMER_TYPE: 'vit_large_patch16_224_TransReID'
+  STRIDE_SIZE: [12, 12]            # <-- Keep high resolution for traffic signs
+  DROP_PATH: 0.2
+  FREEZE_PATCH_EMBED: True         # <-- CRITICAL: Freezing the first layer saves VRAM
+
+INPUT:
+  SIZE_TRAIN: [192, 192]
+  SIZE_TEST: [192, 192]
+  REA: { ENABLED: False }
+  PIXEL_MEAN: [0.5, 0.5, 0.5]
+  PIXEL_STD: [0.5, 0.5, 0.5]
+  LGT: { DO_LGT: True, PROB: 0.5 }
+
+DATASETS:
+  TRAIN: ('UAM_Urban_Combined',)
+  TEST:  ('UAM_Urban_Combined',)
+  ROOT_DIR: '.'
+
+DATALOADER:
+  SAMPLER: 'softmax_triplet'
+  NUM_INSTANCE: 4
+  NUM_WORKERS: 4
+
+SOLVER:
+  OPTIMIZER_NAME: 'AdamW'
+  MAX_EPOCHS: 120
+  BASE_LR: 0.0001                  # <-- Lowered slightly for single GPU stability
+  IMS_PER_BATCH: 16                # <-- Absolute max for 11GB VRAM
+  WARMUP_METHOD: 'linear'
+  WARMUP_EPOCHS: 10
+  WARMUP_FACTOR: 0.01
+  WEIGHT_DECAY: 0.05
+  WEIGHT_DECAY_BIAS: 0.05
+  CHECKPOINT_PERIOD: 5
+  EVAL_PERIOD: 5                   # <-- Prevent OOM spikes during training evaluation
+  LOG_PERIOD: 20
+  SEED: 1234
+
+TEST:
+  EVAL: False
+  IMS_PER_BATCH: 16
+  RE_RANKING: False
+  WEIGHT: ''
+  NECK_FEAT: 'before'
+  FEAT_NORM: True
+
+LOG_ROOT: './models/'
+TB_LOG_ROOT: './tb_log/'
+LOG_NAME: 'E2_large_11GB'

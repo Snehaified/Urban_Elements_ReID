@@ -1,0 +1,193 @@
+2026-05-04 15:31:23,831 PAT INFO: Saving model in the path :./models/E2_large_11GB
+2026-05-04 15:31:23,831 PAT INFO: Namespace(config_file='config/PAT_Large_aug.yml', opts=[], local_rank=0)
+2026-05-04 15:31:23,832 PAT INFO: Loaded configuration file config/PAT_Large_aug.yml
+2026-05-04 15:31:23,832 PAT INFO: 
+MODEL:
+  PRETRAIN_CHOICE: 'imagenet'
+  PRETRAIN_PATH: "models/checkpoints"
+  IF_LABELSMOOTH: 'on'
+  IF_WITH_CENTER: 'yes'
+  NAME: 'part_attention_vit'
+  NO_MARGIN: True
+  TRANSFORMER_TYPE: 'vit_large_patch16_224_TransReID'
+  STRIDE_SIZE: [12, 12]            # <-- Keep high resolution for traffic signs
+  DROP_PATH: 0.2
+  FREEZE_PATCH_EMBED: True         # <-- CRITICAL: Freezing the first layer saves VRAM
+
+INPUT:
+  SIZE_TRAIN: [192, 192]
+  SIZE_TEST: [192, 192]
+  REA: { ENABLED: False }
+  PIXEL_MEAN: [0.5, 0.5, 0.5]
+  PIXEL_STD: [0.5, 0.5, 0.5]
+  LGT: { DO_LGT: True, PROB: 0.5 }
+
+DATASETS:
+  TRAIN: ('UAM_Urban_Combined',)
+  TEST:  ('UAM_Urban_Combined',)
+  ROOT_DIR: '.'
+
+DATALOADER:
+  SAMPLER: 'softmax_triplet'
+  NUM_INSTANCE: 4
+  NUM_WORKERS: 4
+
+SOLVER:
+  OPTIMIZER_NAME: 'AdamW'
+  MAX_EPOCHS: 120
+  BASE_LR: 0.0001                  # <-- Lowered slightly for single GPU stability
+  IMS_PER_BATCH: 16                # <-- Absolute max for 11GB VRAM
+  WARMUP_METHOD: 'linear'
+  WARMUP_EPOCHS: 10
+  WARMUP_FACTOR: 0.01
+  WEIGHT_DECAY: 0.05
+  WEIGHT_DECAY_BIAS: 0.05
+  CHECKPOINT_PERIOD: 5
+  EVAL_PERIOD: 5                   # <-- Prevent OOM spikes during training evaluation
+  LOG_PERIOD: 20
+  SEED: 1234
+
+TEST:
+  EVAL: False
+  IMS_PER_BATCH: 16
+  RE_RANKING: False
+  WEIGHT: ''
+  NECK_FEAT: 'before'
+  FEAT_NORM: True
+
+LOG_ROOT: './models/'
+TB_LOG_ROOT: './tb_log/'
+LOG_NAME: 'E2_large_11GB'
+2026-05-04 15:31:23,832 PAT INFO: Running with config:
+DATALOADER:
+  CAMERA_TO_DOMAIN: False
+  DELETE_REM: False
+  DROP_LAST: False
+  INDIVIDUAL: False
+  NAIVE_WAY: True
+  NUM_INSTANCE: 4
+  NUM_WORKERS: 4
+  SAMPLER: softmax_triplet
+DATASETS:
+  COMBINEALL: False
+  ROOT_DIR: .
+  TEST: ('UAM_Urban_Combined',)
+  TRAIN: ('UAM_Urban_Combined',)
+INPUT:
+  ASPECT_PADDING: False
+  CJ:
+    BRIGHTNESS: 0.15
+    CONTRAST: 0.15
+    ENABLED: False
+    HUE: 0.1
+    PROB: 1.0
+    SATURATION: 0.1
+  DO_AUGMIX: False
+  DO_AUTOAUG: False
+  DO_FLIP: True
+  DO_PAD: True
+  FLIP_PROB: 0.5
+  LGT:
+    DO_LGT: True
+    PROB: 0.5
+  PADDING: 10
+  PADDING_MODE: constant
+  PERSPECTIVE:
+    DISTORTION: 0.3
+    ENABLED: False
+    PROB: 0.5
+  PIXEL_MEAN: [0.5, 0.5, 0.5]
+  PIXEL_STD: [0.5, 0.5, 0.5]
+  REA:
+    ENABLED: False
+    MEAN: [123.675, 116.28, 103.53]
+    PROB: 0.5
+  ROTATION:
+    DEGREES: 15
+    ENABLED: False
+  RPT:
+    ENABLED: False
+    PROB: 0.5
+  SIZE_TEST: [192, 192]
+  SIZE_TRAIN: [192, 192]
+LOG_NAME: E2_large_11GB
+LOG_ROOT: ./models/
+MODEL:
+  ATT_DROP_RATE: 0.0
+  CLUSTER_K: 10
+  COS_LAYER: False
+  DEVICE: cuda
+  DEVICE_ID: 0
+  DIST_TRAIN: False
+  DROP_OUT: 0.0
+  DROP_PATH: 0.2
+  FREEZE_PATCH_EMBED: True
+  ID_LOSS_TYPE: softmax
+  ID_LOSS_WEIGHT: 1.0
+  IF_LABELSMOOTH: on
+  IF_WITH_CENTER: yes
+  LAST_STRIDE: 1
+  METRIC_LOSS_TYPE: triplet
+  NAME: part_attention_vit
+  NECK: bnneck
+  NO_MARGIN: True
+  PATCH_EMBED_TYPE: 
+  PC_LOSS: True
+  PC_LR: 1.0
+  PC_SCALE: 0.02
+  PRETRAIN_CHOICE: imagenet
+  PRETRAIN_PATH: models/checkpoints
+  SOFT_LABEL: True
+  SOFT_LAMBDA: 0.5
+  SOFT_WEIGHT: 0.5
+  STRIDE_SIZE: [12, 12]
+  TRANSFORMER_TYPE: vit_large_patch16_224_TransReID
+  TRIPLET_LOSS_WEIGHT: 1.0
+SOLVER:
+  BASE_LR: 0.0001
+  BIAS_LR_FACTOR: 1
+  CENTER_LOSS_WEIGHT: 0.0005
+  CENTER_LR: 0.5
+  CHECKPOINT_PERIOD: 5
+  COSINE_MARGIN: 0.5
+  COSINE_SCALE: 30
+  EVAL_PERIOD: 5
+  GAMMA: 0.1
+  IMS_PER_BATCH: 16
+  LARGE_FC_LR: False
+  LOG_PERIOD: 20
+  MARGIN: 0.3
+  MAX_EPOCHS: 120
+  MOMENTUM: 0.9
+  OPTIMIZER_NAME: AdamW
+  SEED: 1234
+  STEPS: (40, 70)
+  WARMUP_EPOCHS: 10
+  WARMUP_FACTOR: 0.01
+  WARMUP_METHOD: linear
+  WEIGHT_DECAY: 0.05
+  WEIGHT_DECAY_BIAS: 0.05
+TB_LOG_ROOT: ./tb_log/
+TEST:
+  DIST_MAT: dist_mat.npy
+  EVAL: False
+  FEAT_NORM: True
+  IMS_PER_BATCH: 16
+  NECK_FEAT: before
+  RE_RANKING: False
+  WEIGHT: 
+2026-05-04 15:31:23,860 PAT INFO: => Loaded UAM_Urban_Combined
+2026-05-04 15:31:23,860 PAT INFO:   ----------------------------------------
+2026-05-04 15:31:23,860 PAT INFO:   subset   | # ids | # images | # cameras
+2026-05-04 15:31:23,860 PAT INFO:   ----------------------------------------
+2026-05-04 15:31:23,861 PAT INFO:   train    |  1567 |    17562 |         4
+2026-05-04 15:31:23,861 PAT INFO:   ----------------------------------------
+2026-05-04 15:31:23,983 PAT INFO: => Loaded UAM_Urban_Combined
+2026-05-04 15:31:23,983 PAT INFO:   ----------------------------------------
+2026-05-04 15:31:23,983 PAT INFO:   subset   | # ids | # images | # cameras
+2026-05-04 15:31:23,983 PAT INFO:   ----------------------------------------
+2026-05-04 15:31:23,983 PAT INFO:   query    |   153 |      517 |         1
+2026-05-04 15:31:23,983 PAT INFO:   gallery  |   212 |     1791 |         3
+2026-05-04 15:31:23,983 PAT INFO:   ----------------------------------------
+2026-05-04 15:31:27,726 PAT.train INFO: Number of parameter: 305.97M
+2026-05-04 15:31:27,957 PAT.train INFO: start training

@@ -1,0 +1,57 @@
+MODEL:
+  PRETRAIN_CHOICE: 'imagenet'
+  PRETRAIN_PATH: "models/checkpoints"
+  IF_LABELSMOOTH: 'on'
+  IF_WITH_CENTER: 'yes'
+  NAME: 'part_attention_vit'
+  NO_MARGIN: True
+  DEVICE_ID: ('0')
+  TRANSFORMER_TYPE: 'vit_base_patch16_224_TransReID'
+  STRIDE_SIZE: [12, 12]
+
+INPUT:
+  SIZE_TRAIN: [224, 224]
+  SIZE_TEST: [224, 224]
+  REA:
+    ENABLED: False
+  PIXEL_MEAN: [0.5, 0.5, 0.5]
+  PIXEL_STD: [0.5, 0.5, 0.5]
+  LGT:
+    DO_LGT: False
+
+DATASETS:
+  TRAIN: ('UAM_Urban_Combined',)
+  TEST: ('UAM_Urban_Combined',)   # same class provides query/gallery
+  ROOT_DIR: '.'                   # project root (contains UAMEXTERNAL/ and Urban2026/)
+
+DATALOADER:
+  SAMPLER: 'softmax_triplet'
+  NUM_INSTANCE: 4
+  NUM_WORKERS: 8
+
+SOLVER:
+  OPTIMIZER_NAME: 'AdamW'  # 'Adam' is fine if 'AdamW' isn't supported in your codebase
+  MAX_EPOCHS: 120          # Transformers need a bit more time to settle
+  BASE_LR: 0.0003          # 3e-4 is the sweet spot for ViT fine-tuning
+  IMS_PER_BATCH: 64        # Keep this, it's a good batch size
+  
+  # Learning Rate Scheduling
+  WARMUP_METHOD: 'linear'
+  WARMUP_EPOCHS: 10        # Crucial: Give the ViT 10 epochs to wake up slowly
+  WARMUP_FACTOR: 0.01
+  
+  # Regularization
+  WEIGHT_DECAY: 0.03       # AdamW requires higher weight decay than SGD
+  WEIGHT_DECAY_BIAS: 0.01
+
+TEST:
+  EVAL: True
+  IMS_PER_BATCH: 128
+  RE_RANKING: False
+  WEIGHT: ''
+  NECK_FEAT: 'before'
+  FEAT_NORM: True
+
+LOG_ROOT: 'models/'
+TB_LOG_ROOT: './tb_log/'
+LOG_NAME: 'E2_adamw_224224_stride'
