@@ -129,6 +129,11 @@ _C.INPUT.PERSPECTIVE.PROB = 0.5
 _C.INPUT.ROTATION = CN()
 _C.INPUT.ROTATION.ENABLED = False
 _C.INPUT.ROTATION.DEGREES = 15
+_C.INPUT.BLUR = CN()
+_C.INPUT.BLUR.ENABLED = False
+_C.INPUT.BLUR.KERNEL_SIZE = [3, 5]
+_C.INPUT.BLUR.SIGMA = [0.5, 1.5]
+_C.INPUT.BLUR.P = 0.3
 # -----------------------------------------------------------------------------
 # Dataset
 # -----------------------------------------------------------------------------

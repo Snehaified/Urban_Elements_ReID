@@ -119,6 +119,12 @@ def build_transforms(cfg, is_train=True, is_fake=False):
         cj_saturation = cfg.INPUT.CJ.SATURATION
         cj_hue = cfg.INPUT.CJ.HUE
 
+        # gaussian blur
+        do_blur = cfg.INPUT.BLUR.ENABLED
+        blur_kernel_sizes = cfg.INPUT.BLUR.KERNEL_SIZE
+        blur_sigma = cfg.INPUT.BLUR.SIGMA
+        blur_p = cfg.INPUT.BLUR.P
+
         # random erasing
         do_rea = cfg.INPUT.REA.ENABLED
         rea_prob = cfg.INPUT.REA.PROB
@@ -146,6 +152,9 @@ def build_transforms(cfg, is_train=True, is_fake=False):
             res.append(LGT(lgt_prob))
         if do_cj:
             res.append(T.RandomApply([T.ColorJitter(cj_brightness, cj_contrast, cj_saturation, cj_hue)], p=cj_prob))
+        if do_blur:
+            blur_transforms = [T.GaussianBlur(kernel_size=k, sigma=blur_sigma) for k in blur_kernel_sizes]
+            res.append(T.RandomApply([T.RandomChoice(blur_transforms)], p=blur_p))
         if do_augmix:
             res.append(AugMix())
         # if do_rea:

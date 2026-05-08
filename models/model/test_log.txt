@@ -1,6 +1,6 @@
-2026-04-26 18:52:34,306 PAT INFO: Namespace(config_file='config/PAT_combined_E2Test.yml', opts=[], track='track')
-2026-04-26 18:52:34,306 PAT INFO: Loaded configuration file config/PAT_combined_E2Test.yml
-2026-04-26 18:52:34,306 PAT INFO: 
+2026-05-08 22:14:56,601 PAT INFO: Namespace(config_file='config/UrbanElementsReID_test.yml', opts=[], track='track')
+2026-05-08 22:14:56,601 PAT INFO: Loaded configuration file config/UrbanElementsReID_test.yml
+2026-05-08 22:14:56,601 PAT INFO: 
 MODEL:
   PRETRAIN_CHOICE: 'imagenet'
   #PRETRAIN_PATH: "../../.cache/torch/hub/checkpoints" # root of pretrain path
@@ -21,14 +21,15 @@ INPUT:
     ENABLED: False
   PIXEL_MEAN: [0.5, 0.5, 0.5]
   PIXEL_STD: [0.5, 0.5, 0.5]
-  LGT:
-    DO_LGT: False
+  LGT: # Local Grayscale Transfomation
+    DO_LGT: True
+    PROB: 0.5
 
 DATASETS:
   TRAIN: ('UrbanElementsReID',)
   TEST: ('UrbanElementsReID_test',)
   #ROOT_DIR: ('../../data') # root of datasets
-  ROOT_DIR: './Urban2026'
+  ROOT_DIR: './UAM_Unified'
 
 DATALOADER:
   SAMPLER: 'softmax_triplet'
@@ -36,25 +37,25 @@ DATALOADER:
   NUM_WORKERS: 8
 
 SOLVER:
-  OPTIMIZER_NAME: 'AdamW'  # 'Adam' is fine if 'AdamW' isn't supported in your codebase
-  MAX_EPOCHS: 120          # Transformers need a bit more time to settle
-  BASE_LR: 0.0003          # 3e-4 is the sweet spot for ViT fine-tuning
-  IMS_PER_BATCH: 64        # Keep this, it's a good batch size
-  
-  # Learning Rate Scheduling
+  OPTIMIZER_NAME: 'SGD'
+  MAX_EPOCHS: 60
+  BASE_LR: 0.001 # 0.0004 for msmt
+  IMS_PER_BATCH: 64
   WARMUP_METHOD: 'linear'
-  WARMUP_EPOCHS: 10        # Crucial: Give the ViT 10 epochs to wake up slowly
-  WARMUP_FACTOR: 0.01
-  
-  # Regularization
-  WEIGHT_DECAY: 0.01       # AdamW requires higher weight decay than SGD
-  WEIGHT_DECAY_BIAS: 0.01
+  LARGE_FC_LR: False
+  CHECKPOINT_PERIOD: 5
+  LOG_PERIOD: 60
+  EVAL_PERIOD: 1
+  WEIGHT_DECAY:  1e-4
+  WEIGHT_DECAY_BIAS: 1e-4
+  BIAS_LR_FACTOR: 2
+  SEED: 1234
 
 TEST:
   EVAL: True
   IMS_PER_BATCH: 128
   RE_RANKING: False
-  WEIGHT: "models/E2_adamw_224224/part_attention_vit_20.pth" #test 
+  WEIGHT: "models/E6_tf_aug/part_attention_vit_best.pth" #test 
   NECK_FEAT: 'before'
   FEAT_NORM: True
 
@@ -62,7 +63,7 @@ LOG_ROOT: 'models/' # root of log file
 TB_LOG_ROOT: './tb_log/'
 LOG_NAME: './model'
 
-2026-04-26 18:52:34,306 PAT INFO: Running with config:
+2026-05-08 22:14:56,601 PAT INFO: Running with config:
 DATALOADER:
   CAMERA_TO_DOMAIN: False
   DELETE_REM: False
@@ -74,10 +75,16 @@ DATALOADER:
   SAMPLER: softmax_triplet
 DATASETS:
   COMBINEALL: False
-  ROOT_DIR: ./Urban2026
+  ROOT_DIR: ./UAM_Unified
   TEST: ('UrbanElementsReID_test',)
   TRAIN: ('UrbanElementsReID',)
 INPUT:
+  ASPECT_PADDING: False
+  BLUR:
+    ENABLED: False
+    KERNEL_SIZE: [3, 5]
+    P: 0.3
+    SIGMA: [0.5, 1.5]
   CJ:
     BRIGHTNESS: 0.15
     CONTRAST: 0.15
@@ -91,16 +98,23 @@ INPUT:
   DO_PAD: True
   FLIP_PROB: 0.5
   LGT:
-    DO_LGT: False
-    PROB: 0.2
+    DO_LGT: True
+    PROB: 0.5
   PADDING: 10
   PADDING_MODE: constant
+  PERSPECTIVE:
+    DISTORTION: 0.3
+    ENABLED: False
+    PROB: 0.5
   PIXEL_MEAN: [0.5, 0.5, 0.5]
   PIXEL_STD: [0.5, 0.5, 0.5]
   REA:
     ENABLED: False
     MEAN: [123.675, 116.28, 103.53]
     PROB: 0.5
+  ROTATION:
+    DEGREES: 15
+    ENABLED: False
   RPT:
     ENABLED: False
     PROB: 0.5
@@ -140,29 +154,29 @@ MODEL:
   TRANSFORMER_TYPE: vit_base_patch16_224_TransReID
   TRIPLET_LOSS_WEIGHT: 1.0
 SOLVER:
-  BASE_LR: 0.0003
-  BIAS_LR_FACTOR: 1
+  BASE_LR: 0.001
+  BIAS_LR_FACTOR: 2
   CENTER_LOSS_WEIGHT: 0.0005
   CENTER_LR: 0.5
-  CHECKPOINT_PERIOD: 10
+  CHECKPOINT_PERIOD: 5
   COSINE_MARGIN: 0.5
   COSINE_SCALE: 30
-  EVAL_PERIOD: 10
+  EVAL_PERIOD: 1
   GAMMA: 0.1
   IMS_PER_BATCH: 64
   LARGE_FC_LR: False
-  LOG_PERIOD: 100
+  LOG_PERIOD: 60
   MARGIN: 0.3
-  MAX_EPOCHS: 120
+  MAX_EPOCHS: 60
   MOMENTUM: 0.9
-  OPTIMIZER_NAME: AdamW
+  OPTIMIZER_NAME: SGD
   SEED: 1234
   STEPS: (40, 70)
-  WARMUP_EPOCHS: 10
+  WARMUP_EPOCHS: 5
   WARMUP_FACTOR: 0.01
   WARMUP_METHOD: linear
-  WEIGHT_DECAY: 0.01
-  WEIGHT_DECAY_BIAS: 0.01
+  WEIGHT_DECAY: 0.0001
+  WEIGHT_DECAY_BIAS: 0.0001
 TB_LOG_ROOT: ./tb_log/
 TEST:
   DIST_MAT: dist_mat.npy
@@ -171,19 +185,19 @@ TEST:
   IMS_PER_BATCH: 128
   NECK_FEAT: before
   RE_RANKING: False
-  WEIGHT: models/E2_adamw_224224/part_attention_vit_20.pth
-2026-04-26 18:52:35,338 PAT.train INFO: Number of parameter: 86.57M
-2026-04-26 18:52:35,919 PAT INFO: => Loaded UrbanElementsReID_test
-2026-04-26 18:52:35,919 PAT INFO:   ----------------------------------------
-2026-04-26 18:52:35,919 PAT INFO:   subset   | # ids | # images | # cameras
-2026-04-26 18:52:35,919 PAT INFO:   ----------------------------------------
-2026-04-26 18:52:35,919 PAT INFO:   query    |     1 |      928 |         1
-2026-04-26 18:52:35,919 PAT INFO:   gallery  |     1 |     2844 |         3
-2026-04-26 18:52:35,919 PAT INFO:   ----------------------------------------
-2026-04-26 18:52:35,919 PAT.test INFO: Enter inferencing
-2026-04-26 18:52:52,526 PAT.test INFO: Validation Results 
-2026-04-26 18:52:52,526 PAT.test INFO: mAP: 100.0%
-2026-04-26 18:52:52,526 PAT.test INFO: CMC curve, Rank-1  :100.0%
-2026-04-26 18:52:52,526 PAT.test INFO: CMC curve, Rank-5  :100.0%
-2026-04-26 18:52:52,526 PAT.test INFO: CMC curve, Rank-10 :100.0%
-2026-04-26 18:52:52,526 PAT.test INFO: total inference time: 16.53
+  WEIGHT: models/E6_tf_aug/part_attention_vit_best.pth
+2026-05-08 22:14:57,664 PAT.train INFO: Number of parameter: 86.57M
+2026-05-08 22:14:57,851 PAT INFO: => Loaded UrbanElementsReID_test
+2026-05-08 22:14:57,851 PAT INFO:   ----------------------------------------
+2026-05-08 22:14:57,851 PAT INFO:   subset   | # ids | # images | # cameras
+2026-05-08 22:14:57,851 PAT INFO:   ----------------------------------------
+2026-05-08 22:14:57,851 PAT INFO:   query    |     1 |      517 |         1
+2026-05-08 22:14:57,851 PAT INFO:   gallery  |     1 |     1791 |         3
+2026-05-08 22:14:57,851 PAT INFO:   ----------------------------------------
+2026-05-08 22:14:57,851 PAT.test INFO: Enter inferencing
+2026-05-08 22:17:40,275 PAT.test INFO: Validation Results 
+2026-05-08 22:17:40,275 PAT.test INFO: mAP: 100.0%
+2026-05-08 22:17:40,275 PAT.test INFO: CMC curve, Rank-1  :100.0%
+2026-05-08 22:17:40,275 PAT.test INFO: CMC curve, Rank-5  :100.0%
+2026-05-08 22:17:40,275 PAT.test INFO: CMC curve, Rank-10 :100.0%
+2026-05-08 22:17:40,275 PAT.test INFO: total inference time: 162.42
