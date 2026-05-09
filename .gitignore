@@ -5,4 +5,4 @@ jx_vit_base_p16_224-80ecf9dd.pth
 tb_log
 *.pth
 *.zip
-*.csv
+*.csvmodels/checkpoints/*.pth
