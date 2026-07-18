@@ -5,4 +5,11 @@ jx_vit_base_p16_224-80ecf9dd.pth
 tb_log
 *.pth
 *.zip
-*.csvmodels/checkpoints/*.pth
+*.csv
+models/checkpoints/*.pth
+*.npy
+.DS_Store
+track
+rerank_cache/
+eval_results/
+__pycache__/

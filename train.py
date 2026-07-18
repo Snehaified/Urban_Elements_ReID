@@ -13,6 +13,8 @@ import os
 import argparse
 from config import cfg
 import loss as Patchloss
+import torch.multiprocessing
+torch.multiprocessing.set_sharing_strategy('file_system')
 
 def set_seed(seed):
     torch.manual_seed(seed)

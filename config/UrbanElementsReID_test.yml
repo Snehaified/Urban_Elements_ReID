@@ -8,12 +8,12 @@ MODEL:
   NAME: 'part_attention_vit'
   NO_MARGIN: True
   DEVICE_ID: ('0')
-  TRANSFORMER_TYPE: 'vit_base_patch16_224_TransReID'
+  TRANSFORMER_TYPE: 'vit_large_patch16_224_TransReID'
   STRIDE_SIZE: [16, 16]
 
 INPUT:
-  SIZE_TRAIN: [256,128]
-  SIZE_TEST: [256,128]
+  SIZE_TRAIN: [224,224]
+  SIZE_TEST: [224,224]
   REA:
     ENABLED: False
   PIXEL_MEAN: [0.5, 0.5, 0.5]
@@ -26,12 +26,12 @@ DATASETS:
   TRAIN: ('UrbanElementsReID',)
   TEST: ('UrbanElementsReID_test',)
   #ROOT_DIR: ('../../data') # root of datasets
-  ROOT_DIR: './UAM_Unified'
+  ROOT_DIR: './Urban2026'
 
 DATALOADER:
   SAMPLER: 'softmax_triplet'
   NUM_INSTANCE: 4
-  NUM_WORKERS: 8
+  NUM_WORKERS: 0
 
 SOLVER:
   OPTIMIZER_NAME: 'SGD'
@@ -52,7 +52,7 @@ TEST:
   EVAL: True
   IMS_PER_BATCH: 128
   RE_RANKING: False
-  WEIGHT: "models/E6_tf_aug/part_attention_vit_best.pth" #test 
+  WEIGHT: "models/vit_large/part_attention_vit_best.pth" #test 
   NECK_FEAT: 'before'
   FEAT_NORM: True
 

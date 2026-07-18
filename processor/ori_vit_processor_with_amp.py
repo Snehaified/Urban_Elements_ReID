@@ -175,7 +175,7 @@ def do_inference(cfg,
                  model,
                  val_loader,
                  num_query):
-    device = "cuda"
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     logger = logging.getLogger("PAT.test")
     logger.info("Enter inferencing")
 
@@ -183,11 +183,10 @@ def do_inference(cfg,
 
     evaluator.reset()
 
-    if device:
-        if torch.cuda.device_count() > 1:
-            print('Using {} GPUs for inference'.format(torch.cuda.device_count()))
-            model = nn.DataParallel(model)
-        model.to(device)
+    if torch.cuda.is_available() and torch.cuda.device_count() > 1:
+        print('Using {} GPUs for inference'.format(torch.cuda.device_count()))
+        model = nn.DataParallel(model)
+    model.to(device)
 
     model.eval()
     img_path_list = []

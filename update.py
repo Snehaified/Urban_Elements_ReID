@@ -7,39 +7,53 @@ import numpy as np
 from config import cfg
 from model import make_model
 from utils.logger import setup_logger
-from utils.re_ranking import re_ranking
+from utils.re_ranking import re_ranking, class_aware_re_ranking
 from data.build_DG_dataloader import build_reid_test_loader
 from processor.ori_vit_processor_with_amp import do_inference as do_inf
 from processor.part_attention_vit_processor import do_inference as do_inf_pat
 
 #from torch.backends import cudnn
 
-def extract_feature(model, dataloaders, num_query):
+def extract_feature(model, dataloaders, num_query, device):
     features = []
-    count = 0
-    img_path = []
+    camids = []
 
     for data in dataloaders:
-        img, a, b,_,_ = data.values()
-        #obtain values form dict data
+        img, _, camid, _, _ = data.values()
         n, c, h, w = img.size()
-        count += n
-        ff = torch.FloatTensor(n, 768).zero_().cuda()  # 2048 is pool5 of resnet
         for i in range(2):
-            input_img = img.cuda()
+            input_img = img.to(device)
             outputs = model(input_img)
             f = outputs.float()
+            if i == 0:
+                ff = torch.zeros_like(f)
             ff = ff + f
         fnorm = torch.norm(ff, p=2, dim=1, keepdim=True)
         ff = ff.div(fnorm.expand_as(ff))
         features.append(ff)
-    features = torch.cat(features, 0)
+        camids.extend(camid.tolist() if torch.is_tensor(camid) else list(camid))
 
-    # query
+    features = torch.cat(features, 0)
+    camids = np.array(camids)
+
+    # query / gallery split
     qf = features[:num_query]
-    # gallery
     gf = features[num_query:]
-    return qf, gf
+    q_camids = camids[:num_query]
+    g_camids = camids[num_query:]
+
+    return qf, gf, q_camids, g_camids
+
+
+def camera_normalize(feats, camids):
+    """Subtract per-camera mean then L2-renormalize (no retraining needed)."""
+    feats_np = feats.cpu().numpy()
+    for cam in np.unique(camids):
+        mask = camids == cam
+        feats_np[mask] -= feats_np[mask].mean(axis=0)
+    norms = np.linalg.norm(feats_np, axis=1, keepdims=True)
+    norms = np.maximum(norms, 1e-12)
+    return feats_np / norms
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="ReID Training")
@@ -72,10 +86,16 @@ if __name__ == "__main__":
             logger.info(config_str)
     logger.info("Running with config:\n{}".format(cfg))
 
-    os.environ['CUDA_VISIBLE_DEVICES'] = cfg.MODEL.DEVICE_ID
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    if not torch.cuda.is_available():
+        logger.info("No GPU found, running on CPU")
+    else:
+        os.environ['CUDA_VISIBLE_DEVICES'] = cfg.MODEL.DEVICE_ID
 
     model = make_model(cfg, cfg.MODEL.NAME, 0,0,0)
     model.load_param(cfg.TEST.WEIGHT)
+    model.to(device)
+    model.eval()
 
     for testname in cfg.DATASETS.TEST:
         val_loader, num_query = build_reid_test_loader(cfg, testname)
@@ -84,11 +104,11 @@ if __name__ == "__main__":
         else:
             do_inf(cfg, model, val_loader, num_query)
     with torch.no_grad():
-        qf, gf = extract_feature(model, val_loader, num_query)
+        qf, gf, q_camids, g_camids = extract_feature(model, val_loader, num_query, device)
 
-    # save feature
-    qf=qf.cpu().numpy()
-    gf=gf.cpu().numpy()
+    # camera normalization (post-processing, no retraining needed)
+    qf = camera_normalize(qf, q_camids)
+    gf = camera_normalize(gf, g_camids)
     np.save("./qf.npy", qf)
     np.save("./gf.npy", gf)
 
@@ -96,7 +116,7 @@ if __name__ == "__main__":
     q_q_dist = np.dot(qf, np.transpose(qf))
     g_g_dist = np.dot(gf, np.transpose(gf))
 
-    re_rank_dist = re_ranking(q_g_dist, q_q_dist, g_g_dist)
+    re_rank_dist = class_aware_re_ranking(q_g_dist, q_q_dist, g_g_dist, k1=20, k2=6, lambda_value=0.3, alpha=0.3)
 
     indices = np.argsort(re_rank_dist, axis=1)[:, :100]
 

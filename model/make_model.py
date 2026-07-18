@@ -142,7 +142,7 @@ class Backbone(nn.Module):
                 return global_feat
 
     def load_param(self, trained_path):
-        param_dict = torch.load(trained_path)
+        param_dict = torch.load(trained_path, map_location='cpu')
         if 'state_dict' in param_dict:
             param_dict = param_dict['state_dict']
         for i in param_dict:
@@ -152,7 +152,7 @@ class Backbone(nn.Module):
         print('Loading pretrained model from {}'.format(trained_path))
 
     def load_param_finetune(self, model_path):
-        param_dict = torch.load(model_path)
+        param_dict = torch.load(model_path, map_location='cpu')
         for i in param_dict:
             self.state_dict()[i].copy_(param_dict[i])
         print('Loading pretrained model for finetuning from {}'.format(model_path))
@@ -216,7 +216,7 @@ class build_vit(nn.Module):
             return feat if self.neck_feat == 'after' else global_feat
 
     def load_param(self, trained_path):
-        param_dict = torch.load(trained_path)
+        param_dict = torch.load(trained_path, map_location='cpu')
         for i in param_dict:
             if 'classifier' in i: # drop classifier
                 continue
@@ -226,7 +226,7 @@ class build_vit(nn.Module):
         print('Loading trained model from {}'.format(trained_path))
 
     def load_param_finetune(self, model_path):
-        param_dict = torch.load(model_path)
+        param_dict = torch.load(model_path, map_location='cpu')
         for i in param_dict:
             self.state_dict()[i].copy_(param_dict[i])
         print('Loading pretrained model for finetuning from {}'.format(model_path))
@@ -299,7 +299,7 @@ class build_part_attention_vit(nn.Module):
             return feat if self.neck_feat == 'after' else layerwise_cls_tokens[-1]
 
     def load_param(self, trained_path):
-        param_dict = torch.load(trained_path)
+        param_dict = torch.load(trained_path, map_location='cpu')
         for i in param_dict:
             if 'classifier' in i: # drop classifier
                 continue
@@ -307,7 +307,7 @@ class build_part_attention_vit(nn.Module):
         print('Loading trained model from {}'.format(trained_path))
 
     def load_param_finetune(self, model_path):
-        param_dict = torch.load(model_path)
+        param_dict = torch.load(model_path, map_location='cpu')
         for i in param_dict:
             self.state_dict()[i].copy_(param_dict[i])
         print('Loading pretrained model for finetuning from {}'.format(model_path))
