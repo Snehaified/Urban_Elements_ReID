@@ -29,7 +29,7 @@ The dataset contains four object categories:
 - 📦 Containers
 - 🚸 Traffic Signs
 
-The most difficult challenge is **traffic signs**, where the query camera observes the **back side** of signs while gallery cameras observe the **front**, resulting in almost no shared appearance information. This class accounts for approximately **62% of all queries**, making it the primary bottleneck for overall performance. :contentReference[oaicite:0]{index=0}
+The most difficult challenge is **traffic signs**, where the query camera observes the **back side** of signs while gallery cameras observe the **front**, resulting in almost no shared appearance information. This class accounts for approximately **62% of all queries**, making it the primary bottleneck for overall performance.
 
 ---
 
@@ -88,8 +88,7 @@ Pipeline:
 - Images between 32–64 px: ×4 Real-ESRGAN
 - Images <32 px: bicubic interpolation
 
-Although super-resolution improved visual quality, it produced only marginal retrieval gains and was not included in the final solution. :contentReference[oaicite:2]{index=2}
-
+Although super-resolution improved visual quality, it produced only marginal retrieval gains and was not included in the final solution. 
 ---
 
 ### 3. Part Token Features
