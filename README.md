@@ -60,7 +60,7 @@ Initial performance:
 |---------|------:|
 | Overall mAP | **21.2%** |
 
-The baseline serves as the reference point for all experiments. :contentReference[oaicite:1]{index=1}
+The baseline serves as the reference point for all experiments.
 
 ---
 
