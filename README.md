@@ -162,7 +162,6 @@ Best configuration:
 - Gaussian Blur
 - Aspect padding
 
-:contentReference[oaicite:5]{index=5}
 
 ---
 
