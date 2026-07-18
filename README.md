@@ -1,18 +1,5 @@
 # Part-Aware-Transformer
 
-## 🔥 News
-We updated the visualization codes.
-
-See instructions in /visualization/readme.md.
-
-## Welcome
-
-This is the official repo for "Part-Aware Transformer for Generalizable Person Re-identification" [ICCV 2023]
-
-<div align=center><img src="https://github.com/liyuke65535/Part-Aware-Transformer/assets/39180877/a92d863d-43c7-48ca-b4d5-d34eef237fd5"></div>
-
-
-
 
 ## Abstract
 Domain generalization person re-identification (DG-ReID) aims to train a model on source domains and generalize well on unseen domains.
@@ -26,52 +13,275 @@ Our method achieves state-of-the-art performance under most DG ReID settings.
 ## Framework
 <div align=center><img src="https://github.com/liyuke65535/Part-Aware-Transformer/assets/39180877/f400b553-5a58-4238-9cde-a0d66e232586"></div>
 
-## Visualizations
-<div align=center><img src="https://github.com/liyuke65535/Part-Aware-Transformer/assets/39180877/a0f002c3-ef46-4d63-a3f0-e90dfe0ed61c"></div>
-<div align=center><img src="https://github.com/liyuke65535/Part-Aware-Transformer/assets/39180877/191e0958-46b1-4262-b850-e3264e919a4d"></div>
 
-# Instructions
+The project explores architectural improvements, feature engineering, retrieval refinement, and post-processing methods to improve retrieval performance on challenging cross-view urban scenes.
 
-Here are some instructions to run our code.
-Our code is based on [TransReID](https://github.com/damo-cv/TransReID), thanks for their excellent work.
+---
 
-## 1. Clone this repo
+## Overview
+
+Urban element re-identification differs from traditional object recognition because the goal is to retrieve the **same physical object** from images captured by different cameras.
+
+The dataset contains four object categories:
+
+- 🗑️ Rubbish Bins
+- 🚶 Crosswalks
+- 📦 Containers
+- 🚸 Traffic Signs
+
+The most difficult challenge is **traffic signs**, where the query camera observes the **back side** of signs while gallery cameras observe the **front**, resulting in almost no shared appearance information. This class accounts for approximately **62% of all queries**, making it the primary bottleneck for overall performance. :contentReference[oaicite:0]{index=0}
+
+---
+
+## Project Goals
+
+- Improve retrieval mAP over the PAT baseline
+- Investigate transformer feature representations
+- Optimize re-ranking strategies
+- Explore augmentation techniques
+- Study architectural variants
+- Analyze class-wise performance
+
+---
+
+## Methodology
+
+### Baseline
+
+- PAT (Part-Aware Transformer)
+- ViT-Base backbone
+- Single CLS token
+- Cosine similarity retrieval
+- k-reciprocal re-ranking
+
+Initial performance:
+
+| Metric | Value |
+|---------|------:|
+| Overall mAP | **21.2%** |
+
+The baseline serves as the reference point for all experiments. :contentReference[oaicite:1]{index=1}
+
+---
+
+## Experiments
+
+### 1. Intermediate Feature Concatenation
+
+Investigated concatenating CLS tokens from intermediate transformer layers to incorporate low-level texture information.
+
+**Result**
+
+- Improved rubbish bins
+- Hurt traffic sign performance
+- Overall performance decreased
+
+---
+
+### 2. Super Resolution
+
+Applied Real-ESRGAN as an offline preprocessing step for low-resolution crops.
+
+Pipeline:
+
+- Images ≥64 px: unchanged
+- Images between 32–64 px: ×4 Real-ESRGAN
+- Images <32 px: bicubic interpolation
+
+Although super-resolution improved visual quality, it produced only marginal retrieval gains and was not included in the final solution. :contentReference[oaicite:2]{index=2}
+
+---
+
+### 3. Part Token Features
+
+Instead of using only the CLS embedding, spatial part tokens from the last transformer blocks were averaged and concatenated.
+
+Embedding:
+
 ```
-git clone https://github.com/liyuke65535/Part-Aware-Transformer.git
+Final Embedding = [CLS || Part Tokens]
 ```
 
-## 2. Prepare your environment
+Result:
+
+- Significant spatial information
+- +4.2 mAP improvement
+- Adopted in all subsequent experiments
+
+:contentReference[oaicite:3]{index=3}
+
+---
+
+### 4. Re-ranking Optimization
+
+Extensive tuning of k-reciprocal re-ranking parameters.
+
+Explored:
+
+- k1
+- k2
+- λ
+
+Also evaluated:
+
+- Average Query Expansion (AQE)
+- Database Augmentation (DBA)
+
+Hybrid re-ranking achieved the strongest retrieval performance by combining:
+
+- k-reciprocal for Containers, Crosswalks, and Rubbish Bins
+- AQE + DBA for Traffic Signs
+
+This produced an overall local evaluation of **30.97% mAP**. :contentReference[oaicite:4]{index=4}
+
+---
+
+### 5. Data Augmentation
+
+Investigated:
+
+- Perspective transformations
+- View-aware augmentation
+- Gaussian Blur
+- Aspect padding
+- Random Erasing
+
+View-aware augmentation consistently improved robustness to viewpoint changes.
+
+---
+
+### 6. Optimizer Comparison
+
+Compared SGD with AdamW.
+
+AdamW demonstrated better optimization stability and produced the highest validation performance.
+
+Best configuration:
+
+- AdamW
+- Learning rate: 3e-4
+- Batch size: 64
+- Gaussian Blur
+- Aspect padding
+
+:contentReference[oaicite:5]{index=5}
+
+---
+
+### 7. Architecture Variants
+
+Evaluated:
+
+- ViT-B (PAT)
+- Swin Transformer + SPP
+- Camera Embeddings
+
+Although Swin improved texture-rich classes, ViT remained superior overall.
+
+Camera embeddings did not generalize well on the available training data.
+
+---
+
+## Results
+
+| Stage | Overall mAP |
+|--------|------------:|
+| PAT Baseline | 21.2% |
+| Part Tokens | 25.4% |
+| Re-ranking | 27.5% |
+| UAM + View Augmentation | 28.2% |
+| AdamW + Feature Refinement | **31.1%** |
+
+Overall improvement:
+
 ```
-conda create -n pat python==3.10
-conda activate pat
-bash enviroments.sh
+21.2% → 31.1%
+(+9.9 percentage points)
 ```
 
-## 3. Prepare pretrained model (ViT-B) and datasets
-You can download it from huggingface, rwightman, or else where.
-For example, pretrained model is avaliable at [ViT-B](https://github.com/rwightman/pytorch-image-models/releases/download/v0.1-vitjx/jx_vit_base_p16_224-80ecf9dd.pth).
+:contentReference[oaicite:6]{index=6}
 
-As for datasets, follow the instructions in [MetaBIN](https://github.com/bismex/MetaBIN#8-datasets).
+---
 
-## 4. Modify the config file
+## Key Findings
+
+- Part-aware features significantly improve retrieval.
+- Correct re-ranking parameters are critical.
+- Traffic signs remain the hardest class due to front/back appearance mismatch.
+- Better optimization contributes more than complex architectural changes.
+- Context and geometry appear more informative than raw appearance for difficult objects.
+
+---
+
+## Repository Structure
+
 ```
-# modify the model path and dataset paths of the config file
-vim ./config/PAT.yml
+Urban_Elements_ReID/
+│
+├── configs/                 # Training configurations
+├── datasets/                # Dataset utilities
+├── models/                  # Model implementations
+├── losses/                  # Loss functions
+├── utils/                   # Helper utilities
+├── reranking/               # Retrieval refinement
+├── train.py                 # Training script
+├── inference.py             # Evaluation / inference
+├── requirements.txt
+└── README.md
 ```
 
-## 5. Train a model
-```
-bash run.sh
+---
+
+## Installation
+
+```bash
+git clone https://github.com/Snehaified/Urban_Elements_ReID.git
+
+cd Urban_Elements_ReID
+
+pip install -r requirements.txt
 ```
 
-## 6. Evaluation only
-```
-# modify the trained path in config
-vim ./config/PAT.yml
+---
 
-# evaluation
-python test.py --config ./config/PAT.yml
+## Training
+
+```bash
+python train.py
 ```
+
+---
+
+## Evaluation
+
+```bash
+python inference.py
+```
+
+---
+
+## Future Work
+
+Potential directions include:
+
+- View-specific embeddings
+- Temporal and GPS-aware retrieval
+- Multi-model ensembles
+- Larger Vision Transformers
+- Context-aware retrieval using surrounding scene information
+
+---
+
+## Acknowledgements
+
+This work was completed as part of the **DLVSP Urban Elements Re-Identification Challenge**.
+
+Developed by:
+
+- **Sneha Chaudhary**
+- **Dario Ranieri**
+
+Sagarmatha Invicta
 ## Citation
 If you find this repo useful for your research, you're welcome to cite our paper.
 ```
