@@ -107,7 +107,6 @@ Result:
 - +4.2 mAP improvement
 - Adopted in all subsequent experiments
 
-:contentReference[oaicite:3]{index=3}
 
 ---
 
@@ -131,7 +130,7 @@ Hybrid re-ranking achieved the strongest retrieval performance by combining:
 - k-reciprocal for Containers, Crosswalks, and Rubbish Bins
 - AQE + DBA for Traffic Signs
 
-This produced an overall local evaluation of **30.97% mAP**. :contentReference[oaicite:4]{index=4}
+This produced an overall local evaluation of **30.97% mAP**. 
 
 ---
 
